@@ -1,0 +1,11 @@
+spring:
+  jpa:
+    show-sql: false
+
+  flyway:
+    locations: classpath:db/migration
+
+logging:
+  level:
+    root: WARN
+    com.relix.servicebooking: INFO

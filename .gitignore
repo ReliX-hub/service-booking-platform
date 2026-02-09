@@ -1,0 +1,25 @@
+# ===== Build =====
+target/
+
+# ===== IDE =====
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Logs =====
+*.log
+
+# ===== Env / Local =====
+*.env
+application-local.yml
+
+# ===== Maven =====
+.mvn/wrapper/maven-wrapper.jar
+
+# ===== Testcontainers =====
+testcontainers.properties
