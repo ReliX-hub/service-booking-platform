@@ -3,6 +3,8 @@ package com.relix.servicebooking.settlement.entity;
 import com.relix.servicebooking.common.entity.BaseEntity;
 import com.relix.servicebooking.order.entity.Order;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -19,15 +21,22 @@ public class Settlement extends BaseEntity {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false, unique = true)
+    @NotNull
     private Order order;
 
     @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
+    @NotNull
+    @PositiveOrZero
     private BigDecimal totalPrice;
 
     @Column(name = "platform_fee", nullable = false, precision = 10, scale = 2)
+    @NotNull
+    @PositiveOrZero
     private BigDecimal platformFee;
 
     @Column(name = "provider_payout", nullable = false, precision = 10, scale = 2)
+    @NotNull
+    @PositiveOrZero
     private BigDecimal providerPayout;
 
     @Enumerated(EnumType.STRING)

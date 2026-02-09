@@ -6,6 +6,8 @@ import com.relix.servicebooking.service.entity.Service;
 import com.relix.servicebooking.timeslot.entity.TimeSlot;
 import com.relix.servicebooking.user.entity.User;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -21,14 +23,17 @@ public class Order extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
+    @NotNull
     private User customer;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id", nullable = false)
+    @NotNull
     private Provider provider;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "service_id", nullable = false)
+    @NotNull
     private Service service;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -41,6 +46,8 @@ public class Order extends BaseEntity {
     private OrderStatus status = OrderStatus.PENDING;
 
     @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
+    @NotNull
+    @PositiveOrZero
     private BigDecimal totalPrice;
 
     @Column(columnDefinition = "TEXT")
@@ -48,5 +55,13 @@ public class Order extends BaseEntity {
 
     public enum OrderStatus {
         PENDING, CONFIRMED, CANCELLED, COMPLETED
+    }
+
+    public boolean canComplete() {
+        return this.status == OrderStatus.PENDING || this.status == OrderStatus.CONFIRMED;
+    }
+
+    public boolean canCancel() {
+        return this.status != OrderStatus.COMPLETED && this.status != OrderStatus.CANCELLED;
     }
 }
