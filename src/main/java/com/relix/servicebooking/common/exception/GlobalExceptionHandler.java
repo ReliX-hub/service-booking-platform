@@ -8,44 +8,46 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.stream.Collectors;
-
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(ResourceNotFoundException ex) {
-        log.warn("Resource not found: {}", ex.getMessage());
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error(ex.getMessage(), "RESOURCE_NOT_FOUND"));
+    public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(ResourceNotFoundException e) {
+        log.warn("Resource not found: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(e.getMessage(), "NOT_FOUND"));
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
-        log.warn("Business error: {}", ex.getMessage());
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(ex.getMessage(), ex.getCode()));
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+        log.warn("Business error: {} ({})", e.getMessage(), e.getCode());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(e.getMessage(), e.getCode()));
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConflictException(ConflictException e) {
+        log.warn("Conflict error: {} ({})", e.getMessage(), e.getCode());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(e.getMessage(), e.getCode()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationErrors(MethodArgumentNotValidException ex) {
-        String errors = ex.getBindingResult().getFieldErrors().stream()
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .collect(Collectors.joining(", "));
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(errors, "VALIDATION_ERROR"));
+                .findFirst()
+                .orElse("Validation failed");
+        log.warn("Validation error: {}", message);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(message, "VALIDATION_ERROR"));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
-        log.error("Unexpected error", ex);
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("An unexpected error occurred", "INTERNAL_ERROR"));
+    public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception e) {
+        log.error("Unexpected error", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Internal server error", "INTERNAL_ERROR"));
     }
 }

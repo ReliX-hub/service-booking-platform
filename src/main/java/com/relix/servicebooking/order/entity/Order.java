@@ -53,15 +53,10 @@ public class Order extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
+
     public enum OrderStatus {
-        PENDING, CONFIRMED, CANCELLED, COMPLETED
-    }
-
-    public boolean canComplete() {
-        return this.status == OrderStatus.PENDING || this.status == OrderStatus.CONFIRMED;
-    }
-
-    public boolean canCancel() {
-        return this.status != OrderStatus.COMPLETED && this.status != OrderStatus.CANCELLED;
+        PENDING, PAID, CONFIRMED, CANCELLED, COMPLETED
     }
 }

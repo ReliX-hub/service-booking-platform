@@ -2,6 +2,7 @@ package com.relix.servicebooking.timeslot.service;
 
 import com.relix.servicebooking.common.exception.BusinessException;
 import com.relix.servicebooking.common.exception.ResourceNotFoundException;
+import com.relix.servicebooking.order.repository.OrderRepository;
 import com.relix.servicebooking.provider.entity.Provider;
 import com.relix.servicebooking.provider.repository.ProviderRepository;
 import com.relix.servicebooking.timeslot.dto.TimeSlotCreateRequest;
@@ -9,6 +10,7 @@ import com.relix.servicebooking.timeslot.dto.TimeSlotResponse;
 import com.relix.servicebooking.timeslot.entity.TimeSlot;
 import com.relix.servicebooking.timeslot.repository.TimeSlotRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +18,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -23,6 +26,7 @@ public class TimeSlotService {
 
     private final TimeSlotRepository timeSlotRepository;
     private final ProviderRepository providerRepository;
+    private final OrderRepository orderRepository;
 
     public List<TimeSlotResponse> getSlotsByProvider(Long providerId, String status) {
         if (!providerRepository.existsById(providerId)) {
@@ -90,13 +94,19 @@ public class TimeSlotService {
     }
 
     @Transactional
-    public void releaseSlot(Long slotId) {
-        TimeSlot slot = timeSlotRepository.findById(slotId)
+    public void releaseSlotSafely(Long slotId) {
+        TimeSlot slot = timeSlotRepository.findByIdWithLock(slotId)
                 .orElseThrow(() -> new ResourceNotFoundException("TimeSlot", slotId));
+
+        if (orderRepository.existsByTimeSlot_Id(slotId)) {
+            log.info("Skip releasing slot {} because it is referenced by an order", slotId);
+            return;
+        }
 
         if (slot.getStatus() == TimeSlot.SlotStatus.BOOKED) {
             slot.setStatus(TimeSlot.SlotStatus.AVAILABLE);
             timeSlotRepository.save(slot);
+            log.info("Released slot {}", slotId);
         }
     }
 

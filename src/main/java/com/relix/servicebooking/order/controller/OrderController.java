@@ -4,6 +4,9 @@ import com.relix.servicebooking.common.dto.ApiResponse;
 import com.relix.servicebooking.order.dto.OrderCreateRequest;
 import com.relix.servicebooking.order.dto.OrderResponse;
 import com.relix.servicebooking.order.service.OrderService;
+import com.relix.servicebooking.payment.dto.PaymentRequest;
+import com.relix.servicebooking.payment.dto.PaymentResponse;
+import com.relix.servicebooking.payment.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,6 +24,7 @@ import java.util.List;
 public class OrderController {
 
     private final OrderService orderService;
+    private final PaymentService paymentService;
 
     @GetMapping
     @Operation(summary = "List orders by customer")
@@ -39,8 +43,26 @@ public class OrderController {
     @Operation(summary = "Create a new order")
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @Valid @RequestBody OrderCreateRequest request) {
-        OrderResponse response = orderService.createOrder(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response, "Order created"));
+        OrderService.OrderCreateResult result = orderService.createOrder(request);
+
+        if (result.idempotentHit()) {
+            return ResponseEntity.ok(ApiResponse.success(result.order(), "Order already exists"));
+        } else {
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success(result.order(), "Order created"));
+        }
+    }
+
+    @PostMapping("/{id}/pay")
+    @Operation(summary = "Pay for an order")
+    public ResponseEntity<ApiResponse<PaymentResponse>> payOrder(
+            @PathVariable Long id,
+            @Valid @RequestBody PaymentRequest request) {
+        PaymentResponse response = paymentService.payOrder(id, request);
+        String message = response.isAlreadyPaid()
+                ? (response.isRequestIdMatched() ? "Already paid" : "Already paid with different requestId")
+                : "Payment confirmed";
+        return ResponseEntity.ok(ApiResponse.success(response, message));
     }
 
     @PostMapping("/{id}/confirm")
