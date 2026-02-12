@@ -11,6 +11,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
 @Table(name = "orders")
@@ -56,7 +57,28 @@ public class Order extends BaseEntity {
     @Column(name = "idempotency_key", length = 64)
     private String idempotencyKey;
 
+    // M4 additional fields
+    @Column(name = "accepted_at")
+    private Instant acceptedAt;
+
+    @Column(name = "started_at")
+    private Instant startedAt;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
+    @Column(name = "cancellation_reason", length = 500)
+    private String cancellationReason;
+
     public enum OrderStatus {
-        PENDING, PAID, CONFIRMED, CANCELLED, COMPLETED
+        PENDING,
+        PAID,
+        CONFIRMED,
+        IN_PROGRESS,
+        CANCELLED,
+        COMPLETED
     }
 }
