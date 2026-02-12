@@ -22,6 +22,14 @@ public class OrderResponse {
     private String status;
     private BigDecimal totalPrice;
     private String notes;
+
+    // M4 additional fields
+    private Instant acceptedAt;
+    private Instant startedAt;
+    private Instant completedAt;
+    private Instant cancelledAt;
+    private String cancellationReason;
+
     private Instant createdAt;
     private Instant updatedAt;
 }
