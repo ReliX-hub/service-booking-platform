@@ -1,0 +1,82 @@
+package com.relix.servicebooking.auth.controller;
+
+import com.relix.servicebooking.auth.dto.AuthResponse;
+import com.relix.servicebooking.auth.dto.LoginRequest;
+import com.relix.servicebooking.auth.dto.RefreshRequest;
+import com.relix.servicebooking.auth.dto.RegisterRequest;
+import com.relix.servicebooking.auth.service.AuthService;
+import com.relix.servicebooking.common.dto.ApiResponse;
+import com.relix.servicebooking.user.dto.UserResponse;
+import com.relix.servicebooking.user.entity.User;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+@Tag(name = "Authentication", description = "User authentication")
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping("/register")
+    @Operation(summary = "Register a new user")
+    public ResponseEntity<ApiResponse<AuthResponse>> register(
+            @Valid @RequestBody RegisterRequest request) {
+        AuthResponse response = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(response, "Registration successful"));
+    }
+
+    @PostMapping("/login")
+    @Operation(summary = "Login")
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
+            @Valid @RequestBody LoginRequest request) {
+        AuthResponse response = authService.login(request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Login successful"));
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Refresh access token")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(
+            @Valid @RequestBody RefreshRequest request) {
+        AuthResponse response = authService.refresh(request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Token refreshed"));
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Get current user", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(
+            @AuthenticationPrincipal Long userId) {
+        User user = authService.getCurrentUser(userId);
+        UserResponse response = UserResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole().name())
+                .status(user.getStatus().name())
+                .createdAt(user.getCreatedAt())
+                .build();
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Logout", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @AuthenticationPrincipal Long userId) {
+        authService.logout(userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Logout successful"));
+    }
+}
