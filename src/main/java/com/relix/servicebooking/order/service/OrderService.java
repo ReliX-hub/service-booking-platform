@@ -3,8 +3,10 @@ package com.relix.servicebooking.order.service;
 import com.relix.servicebooking.audit.service.AuditService;
 import com.relix.servicebooking.common.exception.BusinessException;
 import com.relix.servicebooking.common.exception.ConflictException;
+import com.relix.servicebooking.common.exception.ForbiddenException;
 import com.relix.servicebooking.common.exception.ResourceNotFoundException;
 import com.relix.servicebooking.order.dto.OrderCreateRequest;
+import com.relix.servicebooking.order.dto.OrderRejectRequest;
 import com.relix.servicebooking.order.dto.OrderResponse;
 import com.relix.servicebooking.order.entity.Order;
 import com.relix.servicebooking.order.repository.OrderRepository;
@@ -22,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,6 +35,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class OrderService {
+
+    private static final int MAX_CANCELLATION_REASON_LENGTH = 500;
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
@@ -44,6 +49,23 @@ public class OrderService {
     public List<OrderResponse> getOrdersByCustomer(Long customerId) {
         return orderRepository.findByCustomer_Id(customerId)
                 .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<OrderResponse> getOrdersByProvider(Long providerId, String status) {
+        List<Order> orders;
+        if (status != null && !status.isBlank()) {
+            try {
+                Order.OrderStatus orderStatus = Order.OrderStatus.valueOf(status.toUpperCase());
+                orders = orderRepository.findByProvider_IdAndStatus(providerId, orderStatus);
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException("Invalid status: " + status, "INVALID_STATUS");
+            }
+        } else {
+            orders = orderRepository.findByProvider_Id(providerId);
+        }
+        return orders.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -61,7 +83,7 @@ public class OrderService {
             throw new BusinessException("Idempotency key cannot be blank", "INVALID_IDEMPOTENCY_KEY");
         }
 
-        // 幂等检查提前
+        // Perform idempotency check early
         if (idempotencyKey != null) {
             Optional<Order> existing = orderRepository.findByCustomer_IdAndIdempotencyKey(
                     request.getCustomerId(), idempotencyKey);
@@ -156,61 +178,152 @@ public class OrderService {
         }
     }
 
+    // ==================== M4: Provider Operations ====================
+
+    /**
+     * Provider accepts order: PAID → CONFIRMED
+     */
     @Transactional
-    public OrderResponse confirmOrder(Long orderId) {
-        Order order = orderRepository.findById(orderId)
+    public OrderResponse acceptOrder(Long orderId, Long providerId) {
+        Order order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
-        OrderStateValidator.validate(order.getStatus(), Order.OrderStatus.CONFIRMED);
+        validateProviderOwnership(order, providerId);
+        OrderStateValidator.validateForOperation(order.getStatus(), Order.OrderStatus.CONFIRMED, "accept");
 
         order.setStatus(Order.OrderStatus.CONFIRMED);
+        order.setAcceptedAt(Instant.now());
         order = orderRepository.save(order);
 
-        auditService.log("ORDER", orderId, "ORDER_CONFIRMED",
-                "PROVIDER", order.getProvider().getId(), null);
+        auditService.log("ORDER", orderId, "ORDER_ACCEPTED",
+                "PROVIDER", providerId, null);
 
-        log.info("Order confirmed: id={}", orderId);
+        log.info("Order accepted: id={}, providerId={}", orderId, providerId);
         return toResponse(order);
     }
 
+    /**
+     * Provider rejects order: PAID → CANCELLED
+     */
     @Transactional
-    public OrderResponse completeOrder(Long orderId) {
-        Order order = orderRepository.findById(orderId)
+    public OrderResponse rejectOrder(Long orderId, Long providerId, OrderRejectRequest request) {
+        Order order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
-        OrderStateValidator.validate(order.getStatus(), Order.OrderStatus.COMPLETED);
+        validateProviderOwnership(order, providerId);
+        OrderStateValidator.validateForOperation(order.getStatus(), Order.OrderStatus.CANCELLED, "reject");
 
-        order.setStatus(Order.OrderStatus.COMPLETED);
+        // Release booked slot
+        if (order.getTimeSlot() != null) {
+            timeSlotService.releaseSlotSafely(order.getTimeSlot().getId());
+        }
+
+        order.setStatus(Order.OrderStatus.CANCELLED);
+        order.setCancelledAt(Instant.now());
+        order.setCancellationReason(truncateReason("Provider rejected: " + request.getReason()));
         order = orderRepository.save(order);
 
+        auditService.log("ORDER", orderId, "ORDER_REJECTED",
+                "PROVIDER", providerId,
+                Map.of("reason", request.getReason()));
+
+        log.info("Order rejected: id={}, providerId={}, reason={}", orderId, providerId, request.getReason());
+        return toResponse(order);
+    }
+
+    /**
+     * Provider starts service: CONFIRMED → IN_PROGRESS
+     */
+    @Transactional
+    public OrderResponse startOrder(Long orderId, Long providerId) {
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        validateProviderOwnership(order, providerId);
+        OrderStateValidator.validateForOperation(order.getStatus(), Order.OrderStatus.IN_PROGRESS, "start");
+
+        order.setStatus(Order.OrderStatus.IN_PROGRESS);
+        order.setStartedAt(Instant.now());
+        order = orderRepository.save(order);
+
+        auditService.log("ORDER", orderId, "ORDER_STARTED",
+                "PROVIDER", providerId, null);
+
+        log.info("Order started: id={}, providerId={}", orderId, providerId);
+        return toResponse(order);
+    }
+
+    /**
+     * Provider completes service: IN_PROGRESS → COMPLETED
+     */
+    @Transactional
+    public OrderResponse completeOrder(Long orderId, Long providerId) {
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        validateProviderOwnership(order, providerId);
+        OrderStateValidator.validateForOperation(order.getStatus(), Order.OrderStatus.COMPLETED, "complete");
+
+        order.setStatus(Order.OrderStatus.COMPLETED);
+        order.setCompletedAt(Instant.now());
+        order = orderRepository.save(order);
+
+        // Create settlement
         settlementService.createSettlement(order);
 
         auditService.log("ORDER", orderId, "ORDER_COMPLETED",
-                "PROVIDER", order.getProvider().getId(), null);
+                "PROVIDER", providerId, null);
 
-        log.info("Order completed and settlement created: orderId={}", orderId);
+        log.info("Order completed: id={}, providerId={}", orderId, providerId);
         return toResponse(order);
     }
 
+    /**
+     * Customer cancels order: any non-terminal state → CANCELLED (idempotent: return directly if already cancelled)
+     */
     @Transactional
-    public OrderResponse cancelOrder(Long orderId) {
-        Order order = orderRepository.findById(orderId)
+    public OrderResponse cancelOrder(Long orderId, String reason) {
+        Order order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
-        OrderStateValidator.validate(order.getStatus(), Order.OrderStatus.CANCELLED);
+        // Idempotent behavior: return directly if already cancelled
+        if (order.getStatus() == Order.OrderStatus.CANCELLED) {
+            log.info("Order already cancelled (idempotent): id={}", orderId);
+            return toResponse(order);
+        }
+
+        OrderStateValidator.validateForOperation(order.getStatus(), Order.OrderStatus.CANCELLED, "cancel");
 
         if (order.getTimeSlot() != null) {
             timeSlotService.releaseSlotSafely(order.getTimeSlot().getId());
         }
 
         order.setStatus(Order.OrderStatus.CANCELLED);
+        order.setCancelledAt(Instant.now());
+        order.setCancellationReason(truncateReason(reason != null ? reason : "Customer cancelled"));
         order = orderRepository.save(order);
 
         auditService.log("ORDER", orderId, "ORDER_CANCELLED",
-                "CUSTOMER", order.getCustomer().getId(), null);
+                "CUSTOMER", order.getCustomer().getId(),
+                reason != null ? Map.of("reason", reason) : null);
 
         log.info("Order cancelled: id={}", orderId);
         return toResponse(order);
+    }
+
+    private void validateProviderOwnership(Order order, Long providerId) {
+        if (!order.getProvider().getId().equals(providerId)) {
+            throw new ForbiddenException("Order does not belong to this provider");
+        }
+    }
+
+    private String truncateReason(String reason) {
+        if (reason == null) {
+            return null;
+        }
+        return reason.length() > MAX_CANCELLATION_REASON_LENGTH
+                ? reason.substring(0, MAX_CANCELLATION_REASON_LENGTH)
+                : reason;
     }
 
     private OrderResponse toResponse(Order order) {
@@ -223,6 +336,11 @@ public class OrderService {
                 .status(order.getStatus().name())
                 .totalPrice(order.getTotalPrice())
                 .notes(order.getNotes())
+                .acceptedAt(order.getAcceptedAt())
+                .startedAt(order.getStartedAt())
+                .completedAt(order.getCompletedAt())
+                .cancelledAt(order.getCancelledAt())
+                .cancellationReason(order.getCancellationReason())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .build();

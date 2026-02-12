@@ -18,6 +18,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByProvider_Id(Long providerId);
 
+    List<Order> findByProvider_IdAndStatus(Long providerId, Order.OrderStatus status);
+
     List<Order> findByStatus(Order.OrderStatus status);
 
     Optional<Order> findByCustomer_IdAndIdempotencyKey(Long customerId, String idempotencyKey);
@@ -27,4 +29,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT o FROM Order o WHERE o.id = :id")
     Optional<Order> findByIdWithLock(@Param("id") Long id);
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.provider.id = :providerId AND o.status = :status")
+    long countByProviderIdAndStatus(@Param("providerId") Long providerId, @Param("status") Order.OrderStatus status);
 }
