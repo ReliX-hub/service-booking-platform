@@ -44,7 +44,7 @@ public class AuthService {
             throw new BusinessException("Invalid role. Allowed: CUSTOMER, PROVIDER", "INVALID_ROLE");
         }
 
-        User.Role role = User.Role.valueOf(roleStr);
+        User.UserRole role = User.UserRole.valueOf(roleStr);
 
         User user = User.builder()
                 .name(request.getName())
@@ -52,7 +52,7 @@ public class AuthService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
                 .role(role)
-                .status(User.Status.ACTIVE)
+                .status(User.UserStatus.ACTIVE)
                 .build();
 
         user = userRepository.save(user);
@@ -70,7 +70,7 @@ public class AuthService {
             throw new BusinessException("Invalid email or password", "INVALID_CREDENTIALS");
         }
 
-        if (user.getStatus() != User.Status.ACTIVE) {
+        if (user.getStatus() != User.UserStatus.ACTIVE) {
             throw new BusinessException("Account is not active", "ACCOUNT_INACTIVE");
         }
 
