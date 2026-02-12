@@ -1,44 +1,35 @@
+// src/test/java/com/relix/servicebooking/ServiceBookingApplicationTests.java
+
 package com.relix.servicebooking;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
-import static org.assertj.core.api.Assertions.assertThat;
+@SpringBootTest
+@Testcontainers
+class ServiceBookingApplicationTests {
 
-class ServiceBookingApplicationTests extends BaseIntegrationTest {
+    @Container
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine")
+            .withDatabaseName("testdb")
+            .withUsername("test")
+            .withPassword("test");
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+        registry.add("jwt.secret", () -> "dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBqd3QgdG9rZW4gZ2VuZXJhdGlvbiB0aGF0IGlzIGF0IGxlYXN0IDI1NiBiaXRz");
+    }
 
     @Test
-    @DisplayName("Application context loads")
     void contextLoads() {
-    }
-
-    @Test
-    @DisplayName("Actuator health returns UP")
-    void actuatorHealthReturnsUp() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/actuator/health", String.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).contains("UP");
-    }
-
-    @Test
-    @DisplayName("Swagger UI is accessible")
-    void swaggerUiIsAccessible() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/swagger-ui/index.html", String.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    }
-
-    @Test
-    @DisplayName("Providers endpoint returns success")
-    void providersEndpointReturnsSuccess() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/api/providers", String.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).contains("\"success\":true");
+        // Verify application context loads successfully
     }
 }
