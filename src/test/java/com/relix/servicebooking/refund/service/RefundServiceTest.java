@@ -37,7 +37,9 @@ class RefundServiceTest {
     @Test
     void getRefundById_shouldThrowForbidden_whenNonAdminAccessesOtherCustomerRefund() {
         Order order = Order.builder().build();
-        order.setCustomer(User.builder().id(200L).build());
+        User customer = User.builder().build();
+        customer.setId(200L);
+        order.setCustomer(customer);
 
         Refund refund = Refund.builder().order(order).build();
         when(refundRepository.findById(1L)).thenReturn(Optional.of(refund));
@@ -48,13 +50,14 @@ class RefundServiceTest {
 
     @Test
     void createRefund_shouldTruncateReasonTo500() {
-        Order order = Order.builder().id(10L).build();
+        Order order = Order.builder().build();
+        order.setId(10L);
         Payment payment = Payment.builder()
-                .id(20L)
                 .amount(new BigDecimal("99.99"))
                 .status(Payment.PaymentStatus.SUCCEEDED)
                 .order(order)
                 .build();
+        payment.setId(20L);
 
         when(paymentRepository.findByOrder_Id(10L)).thenReturn(Optional.of(payment));
         when(refundRepository.existsByOrderId(10L)).thenReturn(false);
