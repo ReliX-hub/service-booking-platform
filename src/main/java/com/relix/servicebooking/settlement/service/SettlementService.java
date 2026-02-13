@@ -1,6 +1,7 @@
 package com.relix.servicebooking.settlement.service;
 
 import com.relix.servicebooking.common.exception.BusinessException;
+import com.relix.servicebooking.common.exception.ForbiddenException;
 import com.relix.servicebooking.common.exception.ResourceNotFoundException;
 import com.relix.servicebooking.order.entity.Order;
 import com.relix.servicebooking.settlement.dto.SettlementResponse;
@@ -47,6 +48,13 @@ public class SettlementService {
                 .collect(Collectors.toList());
     }
 
+    public List<SettlementResponse> getAllSettlements() {
+        return settlementRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     public SettlementSummaryResponse getSettlementSummary(Long providerId) {
         BigDecimal completedAmount = settlementRepository.sumProviderPayoutByProviderIdAndStatus(
                 providerId, Settlement.SettlementStatus.COMPLETED);
@@ -72,6 +80,47 @@ public class SettlementService {
                 .pendingCount(pendingCount)
                 .failedCount(failedCount)
                 .build();
+    }
+
+    public SettlementSummaryResponse getOverallSettlementSummary() {
+        BigDecimal completedAmount = settlementRepository.sumProviderPayoutByStatus(Settlement.SettlementStatus.COMPLETED);
+        BigDecimal pendingAmount = settlementRepository.sumProviderPayoutByStatus(Settlement.SettlementStatus.PENDING);
+
+        long completedCount = settlementRepository.countByStatus(Settlement.SettlementStatus.COMPLETED);
+        long pendingCount = settlementRepository.countByStatus(Settlement.SettlementStatus.PENDING);
+        long failedCount = settlementRepository.countByStatus(Settlement.SettlementStatus.FAILED);
+
+        return SettlementSummaryResponse.builder()
+                .totalEarnings(completedAmount.add(pendingAmount))
+                .completedAmount(completedAmount)
+                .pendingAmount(pendingAmount)
+                .totalCount(completedCount + pendingCount + failedCount)
+                .completedCount(completedCount)
+                .pendingCount(pendingCount)
+                .failedCount(failedCount)
+                .build();
+    }
+
+    public SettlementResponse getSettlementByIdWithAccess(Long id, Long currentUserId, boolean isAdmin) {
+        Settlement settlement = settlementRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Settlement", id));
+
+        if (!isAdmin && !settlement.getOrder().getProvider().getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("Access denied to this settlement");
+        }
+
+        return toResponse(settlement);
+    }
+
+    public SettlementResponse getSettlementByOrderIdWithAccess(Long orderId, Long currentUserId, boolean isAdmin) {
+        Settlement settlement = settlementRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Settlement for order", orderId));
+
+        if (!isAdmin && !settlement.getOrder().getProvider().getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("Access denied to this settlement");
+        }
+
+        return toResponse(settlement);
     }
 
     @Transactional

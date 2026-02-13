@@ -15,6 +15,7 @@ import com.relix.servicebooking.order.validator.OrderStateValidator;
 import com.relix.servicebooking.service.entity.Service;
 import com.relix.servicebooking.service.repository.ServiceRepository;
 import com.relix.servicebooking.payment.repository.PaymentRepository;
+import com.relix.servicebooking.payment.entity.Payment;
 import com.relix.servicebooking.refund.service.RefundService;
 import com.relix.servicebooking.settlement.service.SettlementService;
 import com.relix.servicebooking.timeslot.entity.TimeSlot;
@@ -255,7 +256,9 @@ public class OrderService {
         validateProviderOwnership(order, providerId);
 
         // Check if the order was paid before rejecting (for refund trigger)
-        boolean wasPaid = paymentRepository.findByOrder_Id(orderId).isPresent();
+        boolean wasPaid = paymentRepository.findByOrder_Id(orderId)
+                .map(payment -> payment.getStatus() == Payment.PaymentStatus.SUCCEEDED)
+                .orElse(false);
 
         OrderStateValidator.validateForOperation(order.getStatus(), Order.OrderStatus.CANCELLED, "reject");
 
