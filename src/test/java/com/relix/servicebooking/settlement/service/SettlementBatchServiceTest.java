@@ -34,10 +34,10 @@ class SettlementBatchServiceTest {
     @Test
     void processBatch_shouldMarkBatchFailed_whenAnySettlementFails() {
         Settlement settlement = Settlement.builder()
-                .id(1L)
                 .providerPayout(new BigDecimal("50.00"))
                 .status(Settlement.SettlementStatus.PENDING)
                 .build();
+        settlement.setId(1L);
 
         when(settlementBatchRepository.existsByBatchId(anyString())).thenReturn(false);
         when(settlementRepository.findByStatus(Settlement.SettlementStatus.PENDING))
