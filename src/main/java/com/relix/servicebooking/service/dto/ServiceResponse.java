@@ -18,8 +18,8 @@ public class ServiceResponse {
     private Long providerId;
     private String name;
     private String description;
-    private Integer durationMinutes;
     private BigDecimal price;
+    private Integer durationMinutes;
     private String status;
     private Instant createdAt;
     private Instant updatedAt;
