@@ -22,4 +22,5 @@ public class ServiceResponse {
     private BigDecimal price;
     private String status;
     private Instant createdAt;
+    private Instant updatedAt;
 }
