@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class OrderCreateRequest {
 
-    @NotNull(message = "Customer ID is required")
+    // Set by server from current authenticated user
     private Long customerId;
 
     @NotNull(message = "Service ID is required")
