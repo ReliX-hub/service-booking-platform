@@ -17,7 +17,6 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ServiceCreateRequest {
 
-    @NotNull(message = "Provider ID is required")
     private Long providerId;
 
     @NotBlank(message = "Service name is required")
