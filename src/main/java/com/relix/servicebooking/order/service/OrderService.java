@@ -1,6 +1,7 @@
 package com.relix.servicebooking.order.service;
 
 import com.relix.servicebooking.audit.service.AuditService;
+import com.relix.servicebooking.auth.service.CurrentUserService;
 import com.relix.servicebooking.common.exception.BusinessException;
 import com.relix.servicebooking.common.exception.ConflictException;
 import com.relix.servicebooking.common.exception.ForbiddenException;
@@ -45,9 +46,10 @@ public class OrderService {
     private final TimeSlotService timeSlotService;
     private final SettlementService settlementService;
     private final AuditService auditService;
+    private final CurrentUserService currentUserService;
 
-    public List<OrderResponse> getOrdersByCustomer(Long customerId) {
-        return orderRepository.findByCustomer_Id(customerId)
+    public List<OrderResponse> getOrdersByCustomerUserId(Long customerUserId) {
+        return orderRepository.findByCustomer_Id(customerUserId)
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -76,6 +78,46 @@ public class OrderService {
         return toResponse(order);
     }
 
+    /**
+     * Get order by ID with access check (uses injected CurrentUserService)
+     */
+    public OrderResponse getOrderByIdWithAccessCheck(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        // ADMIN can access all orders
+        if (currentUserService.isAdmin()) {
+            return toResponse(order);
+        }
+
+        Long currentUserId = currentUserService.getCurrentUserId();
+
+        // Check if user is the customer
+        boolean isCustomer = order.getCustomer().getId().equals(currentUserId);
+
+        // Check if user is the provider's user
+        boolean isProvider = order.getProvider().getUser() != null
+                && order.getProvider().getUser().getId().equals(currentUserId);
+
+        if (!isCustomer && !isProvider) {
+            throw new ForbiddenException("Access denied to this order");
+        }
+
+        return toResponse(order);
+    }
+
+    /**
+     * Verify that the order belongs to the given customer (by user ID)
+     */
+    public void verifyCustomerOwnership(Long orderId, Long customerUserId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        if (!order.getCustomer().getId().equals(customerUserId)) {
+            throw new ForbiddenException("Order does not belong to this customer");
+        }
+    }
+
     @Transactional
     public OrderCreateResult createOrder(OrderCreateRequest request) {
         String idempotencyKey = request.getIdempotencyKey();
@@ -83,10 +125,12 @@ public class OrderService {
             throw new BusinessException("Idempotency key cannot be blank", "INVALID_IDEMPOTENCY_KEY");
         }
 
-        // Perform idempotency check early
+        Long customerUserId = request.getCustomerId();
+
+        // Idempotency check
         if (idempotencyKey != null) {
             Optional<Order> existing = orderRepository.findByCustomer_IdAndIdempotencyKey(
-                    request.getCustomerId(), idempotencyKey);
+                    customerUserId, idempotencyKey);
             if (existing.isPresent()) {
                 validateIdempotentRequestMatches(existing.get(), request);
                 log.info("Idempotent hit (early check): returning existing order {}", existing.get().getId());
@@ -94,8 +138,8 @@ public class OrderService {
             }
         }
 
-        User customer = userRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("User", request.getCustomerId()));
+        User customer = userRepository.findById(customerUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", customerUserId));
 
         Service service = serviceRepository.findById(request.getServiceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Service", request.getServiceId()));
@@ -134,13 +178,13 @@ public class OrderService {
                     "CUSTOMER", customer.getId(),
                     Map.of("serviceId", service.getId(), "totalPrice", order.getTotalPrice()));
 
-            log.info("Order created: id={}, customerId={}, serviceId={}", order.getId(), customer.getId(), service.getId());
+            log.info("Order created: id={}, customerUserId={}, serviceId={}", order.getId(), customer.getId(), service.getId());
             return new OrderCreateResult(toResponse(order), false);
 
         } catch (DataIntegrityViolationException e) {
             if (idempotencyKey != null) {
                 Optional<Order> existing = orderRepository.findByCustomer_IdAndIdempotencyKey(
-                        request.getCustomerId(), idempotencyKey);
+                        customerUserId, idempotencyKey);
                 if (existing.isPresent()) {
                     if (timeSlot != null) {
                         timeSlotService.releaseSlotSafely(timeSlot.getId());
@@ -178,11 +222,8 @@ public class OrderService {
         }
     }
 
-    // ==================== M4: Provider Operations ====================
+    // ==================== Provider Operations ====================
 
-    /**
-     * Provider accepts order: PAID → CONFIRMED
-     */
     @Transactional
     public OrderResponse acceptOrder(Long orderId, Long providerId) {
         Order order = orderRepository.findByIdWithLock(orderId)
@@ -202,9 +243,6 @@ public class OrderService {
         return toResponse(order);
     }
 
-    /**
-     * Provider rejects order: PAID → CANCELLED
-     */
     @Transactional
     public OrderResponse rejectOrder(Long orderId, Long providerId, OrderRejectRequest request) {
         Order order = orderRepository.findByIdWithLock(orderId)
@@ -213,7 +251,6 @@ public class OrderService {
         validateProviderOwnership(order, providerId);
         OrderStateValidator.validateForOperation(order.getStatus(), Order.OrderStatus.CANCELLED, "reject");
 
-        // Release booked slot
         if (order.getTimeSlot() != null) {
             timeSlotService.releaseSlotSafely(order.getTimeSlot().getId());
         }
@@ -231,9 +268,6 @@ public class OrderService {
         return toResponse(order);
     }
 
-    /**
-     * Provider starts service: CONFIRMED → IN_PROGRESS
-     */
     @Transactional
     public OrderResponse startOrder(Long orderId, Long providerId) {
         Order order = orderRepository.findByIdWithLock(orderId)
@@ -253,9 +287,6 @@ public class OrderService {
         return toResponse(order);
     }
 
-    /**
-     * Provider completes service: IN_PROGRESS → COMPLETED
-     */
     @Transactional
     public OrderResponse completeOrder(Long orderId, Long providerId) {
         Order order = orderRepository.findByIdWithLock(orderId)
@@ -268,7 +299,6 @@ public class OrderService {
         order.setCompletedAt(Instant.now());
         order = orderRepository.save(order);
 
-        // Create settlement
         settlementService.createSettlement(order);
 
         auditService.log("ORDER", orderId, "ORDER_COMPLETED",
@@ -278,15 +308,12 @@ public class OrderService {
         return toResponse(order);
     }
 
-    /**
-     * Customer cancels order: any non-terminal state → CANCELLED (idempotent: return directly if already cancelled)
-     */
     @Transactional
     public OrderResponse cancelOrder(Long orderId, String reason) {
         Order order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
-        // Idempotent behavior: return directly if already cancelled
+        // Idempotent: already cancelled
         if (order.getStatus() == Order.OrderStatus.CANCELLED) {
             log.info("Order already cancelled (idempotent): id={}", orderId);
             return toResponse(order);
