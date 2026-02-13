@@ -1,6 +1,7 @@
 package com.relix.servicebooking.service.repository;
 
 import com.relix.servicebooking.service.entity.Service;
+import com.relix.servicebooking.service.entity.Service.ServiceStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
