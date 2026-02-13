@@ -97,7 +97,7 @@ public class SettlementBatchService {
         batch.setSuccessCount(successCount);
         batch.setFailedCount(failedCount);
         batch.setTotalAmount(totalAmount);
-        batch.setStatus(failedCount == 0 ? SettlementBatch.BatchStatus.COMPLETED : SettlementBatch.BatchStatus.COMPLETED);
+        batch.setStatus(failedCount == 0 ? SettlementBatch.BatchStatus.COMPLETED : SettlementBatch.BatchStatus.FAILED);
         batch.setCompletedAt(Instant.now());
         batch = settlementBatchRepository.save(batch);
 
