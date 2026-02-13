@@ -7,7 +7,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface RefundRepository extends JpaRepository<Refund, Long> {
@@ -16,6 +15,8 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
 
     @Query("SELECT r FROM Refund r WHERE r.order.customer.id = :customerId ORDER BY r.createdAt DESC")
     List<Refund> findByCustomerId(@Param("customerId") Long customerId);
+
+    List<Refund> findAllByOrderByCreatedAtDesc();
 
     List<Refund> findByStatus(Refund.RefundStatus status);
 

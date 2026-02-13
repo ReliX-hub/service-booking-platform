@@ -31,4 +31,12 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
     long countByProviderIdAndStatus(@Param("providerId") Long providerId, @Param("status") Settlement.SettlementStatus status);
 
     List<Settlement> findByBatchId(String batchId);
+
+    List<Settlement> findAllByOrderByCreatedAtDesc();
+
+    @Query("SELECT COALESCE(SUM(s.providerPayout), 0) FROM Settlement s WHERE s.status = :status")
+    java.math.BigDecimal sumProviderPayoutByStatus(@Param("status") Settlement.SettlementStatus status);
+
+    @Query("SELECT COUNT(s) FROM Settlement s WHERE s.status = :status")
+    long countByStatus(@Param("status") Settlement.SettlementStatus status);
 }

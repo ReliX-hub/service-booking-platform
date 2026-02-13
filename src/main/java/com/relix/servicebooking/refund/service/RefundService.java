@@ -1,5 +1,6 @@
 package com.relix.servicebooking.refund.service;
 
+import com.relix.servicebooking.common.exception.ForbiddenException;
 import com.relix.servicebooking.common.exception.ResourceNotFoundException;
 import com.relix.servicebooking.order.entity.Order;
 import com.relix.servicebooking.payment.entity.Payment;
@@ -22,6 +23,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class RefundService {
 
+    private static final int MAX_REASON_LENGTH = 500;
+
     private final RefundRepository refundRepository;
     private final PaymentRepository paymentRepository;
 
@@ -39,7 +42,7 @@ public class RefundService {
                 .order(order)
                 .payment(payment)
                 .amount(payment.getAmount())
-                .reason(reason)
+                .reason(truncateReason(reason))
                 .status(Refund.RefundStatus.PENDING)
                 .build();
 
@@ -84,10 +87,31 @@ public class RefundService {
                 .collect(Collectors.toList());
     }
 
-    public RefundResponse getRefundById(Long id) {
+    public List<RefundResponse> getAllRefunds() {
+        return refundRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public RefundResponse getRefundById(Long id, Long currentUserId, boolean isAdmin) {
         Refund refund = refundRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Refund", id));
+
+        if (!isAdmin && !refund.getOrder().getCustomer().getId().equals(currentUserId)) {
+            throw new ForbiddenException("Access denied to this refund");
+        }
+
         return toResponse(refund);
+    }
+
+    private String truncateReason(String reason) {
+        if (reason == null) {
+            return null;
+        }
+        return reason.length() > MAX_REASON_LENGTH
+                ? reason.substring(0, MAX_REASON_LENGTH)
+                : reason;
     }
 
     public RefundResponse toResponse(Refund refund) {
