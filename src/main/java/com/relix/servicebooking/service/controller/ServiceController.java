@@ -2,6 +2,7 @@ package com.relix.servicebooking.service.controller;
 
 import com.relix.servicebooking.auth.service.CurrentUserService;
 import com.relix.servicebooking.common.dto.ApiResponse;
+import com.relix.servicebooking.common.exception.BusinessException;
 import com.relix.servicebooking.service.dto.ServiceCreateRequest;
 import com.relix.servicebooking.service.dto.ServiceResponse;
 import com.relix.servicebooking.service.dto.ServiceUpdateRequest;
@@ -55,7 +56,16 @@ public class ServiceController {
     @PreAuthorize("hasAnyRole('PROVIDER', 'ADMIN')")
     public ResponseEntity<ApiResponse<ServiceResponse>> createService(
             @Valid @RequestBody ServiceCreateRequest request) {
-        Long providerId = currentUserService.getCurrentProvider().getId();
+        Long providerId;
+        if (currentUserService.isAdmin()) {
+            providerId = request.getProviderId();
+            if (providerId == null) {
+                throw new BusinessException("providerId is required for ADMIN", "PROVIDER_ID_REQUIRED");
+            }
+        } else {
+            providerId = currentUserService.getCurrentProvider().getId();
+        }
+
         request.setProviderId(providerId);
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -68,7 +78,9 @@ public class ServiceController {
     public ResponseEntity<ApiResponse<ServiceResponse>> updateService(
             @PathVariable Long id,
             @Valid @RequestBody ServiceUpdateRequest request) {
-        serviceService.verifyProviderOwnership(id, currentUserService.getCurrentProvider().getId());
+        if (!currentUserService.isAdmin()) {
+            serviceService.verifyProviderOwnership(id, currentUserService.getCurrentProvider().getId());
+        }
 
         return ResponseEntity.ok(ApiResponse.success(serviceService.updateService(id, request), "Service updated"));
     }
@@ -77,7 +89,9 @@ public class ServiceController {
     @Operation(summary = "Delete a service")
     @PreAuthorize("hasAnyRole('PROVIDER', 'ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteService(@PathVariable Long id) {
-        serviceService.verifyProviderOwnership(id, currentUserService.getCurrentProvider().getId());
+        if (!currentUserService.isAdmin()) {
+            serviceService.verifyProviderOwnership(id, currentUserService.getCurrentProvider().getId());
+        }
 
         serviceService.deleteService(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Service deleted"));
