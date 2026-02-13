@@ -4,6 +4,7 @@ import com.relix.servicebooking.common.exception.BusinessException;
 import com.relix.servicebooking.common.exception.ResourceNotFoundException;
 import com.relix.servicebooking.order.entity.Order;
 import com.relix.servicebooking.settlement.dto.SettlementResponse;
+import com.relix.servicebooking.settlement.dto.SettlementSummaryResponse;
 import com.relix.servicebooking.settlement.entity.Settlement;
 import com.relix.servicebooking.settlement.repository.SettlementRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -37,6 +40,40 @@ public class SettlementService {
         return toResponse(settlement);
     }
 
+    public List<SettlementResponse> getSettlementsByProviderId(Long providerId) {
+        return settlementRepository.findByProviderId(providerId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public SettlementSummaryResponse getSettlementSummary(Long providerId) {
+        BigDecimal completedAmount = settlementRepository.sumProviderPayoutByProviderIdAndStatus(
+                providerId, Settlement.SettlementStatus.COMPLETED);
+        BigDecimal pendingAmount = settlementRepository.sumProviderPayoutByProviderIdAndStatus(
+                providerId, Settlement.SettlementStatus.PENDING);
+
+        long completedCount = settlementRepository.countByProviderIdAndStatus(
+                providerId, Settlement.SettlementStatus.COMPLETED);
+        long pendingCount = settlementRepository.countByProviderIdAndStatus(
+                providerId, Settlement.SettlementStatus.PENDING);
+        long failedCount = settlementRepository.countByProviderIdAndStatus(
+                providerId, Settlement.SettlementStatus.FAILED);
+
+        long totalCount = completedCount + pendingCount + failedCount;
+        BigDecimal totalEarnings = completedAmount.add(pendingAmount);
+
+        return SettlementSummaryResponse.builder()
+                .totalEarnings(totalEarnings)
+                .completedAmount(completedAmount)
+                .pendingAmount(pendingAmount)
+                .totalCount(totalCount)
+                .completedCount(completedCount)
+                .pendingCount(pendingCount)
+                .failedCount(failedCount)
+                .build();
+    }
+
     @Transactional
     public Settlement createSettlement(Order order) {
         if (settlementRepository.existsByOrderId(order.getId())) {
@@ -57,18 +94,18 @@ public class SettlementService {
                 .totalPrice(totalPrice)
                 .platformFee(platformFee)
                 .providerPayout(providerPayout)
-                .status(Settlement.SettlementStatus.SETTLED)
+                .status(Settlement.SettlementStatus.PENDING)
                 .settledAt(Instant.now())
                 .build();
 
         settlement = settlementRepository.save(settlement);
-        log.info("Settlement created: id={}, orderId={}, total={}, fee={}, payout={}",
+        log.info("Settlement created: id={}, orderId={}, total={}, fee={}, payout={}, status=PENDING",
                 settlement.getId(), order.getId(), totalPrice, platformFee, providerPayout);
 
         return settlement;
     }
 
-    private SettlementResponse toResponse(Settlement settlement) {
+    public SettlementResponse toResponse(Settlement settlement) {
         return SettlementResponse.builder()
                 .id(settlement.getId())
                 .orderId(settlement.getOrder().getId())

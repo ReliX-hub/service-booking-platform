@@ -37,6 +37,6 @@ public class Payment extends BaseEntity {
     private Instant paidAt = Instant.now();
 
     public enum PaymentStatus {
-        SUCCEEDED
+        SUCCEEDED, REFUNDED
     }
 }
