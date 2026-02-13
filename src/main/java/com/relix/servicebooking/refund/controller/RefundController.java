@@ -22,14 +22,23 @@ public class RefundController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<RefundResponse>>> getRefunds() {
-        Long currentUserId = currentUserService.getCurrentUserId();
-        List<RefundResponse> refunds = refundService.getRefundsByCustomerId(currentUserId);
+        List<RefundResponse> refunds;
+        if (currentUserService.isAdmin()) {
+            refunds = refundService.getAllRefunds();
+        } else {
+            Long currentUserId = currentUserService.getCurrentUserId();
+            refunds = refundService.getRefundsByCustomerId(currentUserId);
+        }
         return ResponseEntity.ok(ApiResponse.success(refunds));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<RefundResponse>> getRefund(@PathVariable Long id) {
-        RefundResponse refund = refundService.getRefundById(id);
+        RefundResponse refund = refundService.getRefundById(
+                id,
+                currentUserService.getCurrentUserId(),
+                currentUserService.isAdmin()
+        );
         return ResponseEntity.ok(ApiResponse.success(refund));
     }
 }
