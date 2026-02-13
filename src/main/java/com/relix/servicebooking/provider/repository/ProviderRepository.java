@@ -10,9 +10,9 @@ import java.util.Optional;
 @Repository
 public interface ProviderRepository extends JpaRepository<Provider, Long> {
 
+    List<Provider> findByVerifiedTrue();
+
     Optional<Provider> findByUser_Id(Long userId);
 
     boolean existsByUser_Id(Long userId);
-
-    List<Provider> findByVerifiedTrue();
 }

@@ -2,6 +2,7 @@ package com.relix.servicebooking.timeslot.controller;
 
 import com.relix.servicebooking.auth.service.CurrentUserService;
 import com.relix.servicebooking.common.dto.ApiResponse;
+import com.relix.servicebooking.common.exception.BusinessException;
 import com.relix.servicebooking.timeslot.dto.TimeSlotCreateRequest;
 import com.relix.servicebooking.timeslot.dto.TimeSlotResponse;
 import com.relix.servicebooking.timeslot.service.TimeSlotService;
@@ -40,7 +41,16 @@ public class TimeSlotController {
     @PreAuthorize("hasAnyRole('PROVIDER', 'ADMIN')")
     public ResponseEntity<ApiResponse<TimeSlotResponse>> createTimeSlot(
             @Valid @RequestBody TimeSlotCreateRequest request) {
-        Long providerId = currentUserService.getCurrentProvider().getId();
+        Long providerId;
+        if (currentUserService.isAdmin()) {
+            providerId = request.getProviderId();
+            if (providerId == null) {
+                throw new BusinessException("providerId is required for ADMIN", "PROVIDER_ID_REQUIRED");
+            }
+        } else {
+            providerId = currentUserService.getCurrentProvider().getId();
+        }
+
         request.setProviderId(providerId);
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -51,7 +61,9 @@ public class TimeSlotController {
     @Operation(summary = "Delete a time slot")
     @PreAuthorize("hasAnyRole('PROVIDER', 'ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteTimeSlot(@PathVariable Long id) {
-        timeSlotService.verifyProviderOwnership(id, currentUserService.getCurrentProvider().getId());
+        if (!currentUserService.isAdmin()) {
+            timeSlotService.verifyProviderOwnership(id, currentUserService.getCurrentProvider().getId());
+        }
 
         timeSlotService.deleteTimeSlot(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Time slot deleted"));

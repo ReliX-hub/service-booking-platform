@@ -15,7 +15,6 @@ import java.time.Instant;
 @AllArgsConstructor
 public class TimeSlotCreateRequest {
 
-    @NotNull(message = "Provider ID is required")
     private Long providerId;
 
     @NotNull(message = "Start time is required")
