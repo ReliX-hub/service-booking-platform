@@ -48,7 +48,7 @@ CREATE TABLE settlement_batches (
 
 -- 4. Add index on settlements batch_id
 CREATE INDEX idx_settlements_batch ON settlements(batch_id);
-CREATE INDEX idx_settlements_status ON settlements(status);
+CREATE INDEX IF NOT EXISTS idx_settlements_status ON settlements(status);
 
 -- 5. Add updated_at trigger for refunds
 CREATE OR REPLACE TRIGGER set_refunds_updated_at
