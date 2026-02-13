@@ -14,6 +14,8 @@ import com.relix.servicebooking.order.repository.OrderRepository;
 import com.relix.servicebooking.order.validator.OrderStateValidator;
 import com.relix.servicebooking.service.entity.Service;
 import com.relix.servicebooking.service.repository.ServiceRepository;
+import com.relix.servicebooking.payment.repository.PaymentRepository;
+import com.relix.servicebooking.refund.service.RefundService;
 import com.relix.servicebooking.settlement.service.SettlementService;
 import com.relix.servicebooking.timeslot.entity.TimeSlot;
 import com.relix.servicebooking.timeslot.repository.TimeSlotRepository;
@@ -45,6 +47,8 @@ public class OrderService {
     private final TimeSlotRepository timeSlotRepository;
     private final TimeSlotService timeSlotService;
     private final SettlementService settlementService;
+    private final RefundService refundService;
+    private final PaymentRepository paymentRepository;
     private final AuditService auditService;
     private final CurrentUserService currentUserService;
 
@@ -249,6 +253,10 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
         validateProviderOwnership(order, providerId);
+
+        // Check if the order was paid before rejecting (for refund trigger)
+        boolean wasPaid = paymentRepository.findByOrder_Id(orderId).isPresent();
+
         OrderStateValidator.validateForOperation(order.getStatus(), Order.OrderStatus.CANCELLED, "reject");
 
         if (order.getTimeSlot() != null) {
@@ -259,6 +267,12 @@ public class OrderService {
         order.setCancelledAt(Instant.now());
         order.setCancellationReason(truncateReason("Provider rejected: " + request.getReason()));
         order = orderRepository.save(order);
+
+        // Trigger refund if the order was paid
+        if (wasPaid) {
+            refundService.createRefund(order, "Provider rejected: " + request.getReason());
+            log.info("Refund triggered for rejected order: id={}", orderId);
+        }
 
         auditService.log("ORDER", orderId, "ORDER_REJECTED",
                 "PROVIDER", providerId,
