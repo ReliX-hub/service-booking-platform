@@ -33,4 +33,4 @@ INSERT INTO orders (customer_id, provider_id, service_id, status, total_price, n
     (2, 1, 1, 'COMPLETED', 25.00, 'Demo completed order');
 
 INSERT INTO settlements (order_id, total_price, platform_fee, provider_payout, status) VALUES
-    (1, 25.00, 2.50, 22.50, 'SETTLED');
+    (1, 25.00, 2.50, 22.50, 'COMPLETED');
