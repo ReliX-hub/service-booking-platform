@@ -22,7 +22,7 @@ A Spring Boot backend for service appointment booking, payment, provider workflo
 - Payment and refund APIs
 - Settlement query APIs and admin batch processing
 - Audit logging
-- Flyway migrations + dev seed data
+- Flyway migrations + seed data
 - Swagger/OpenAPI + Actuator health endpoint
 
 ## Tech Stack
@@ -31,57 +31,49 @@ A Spring Boot backend for service appointment booking, payment, provider workflo
 - Spring Boot 3.2.5
 - Spring Security + JWT
 - Spring Data JPA (Hibernate)
-- PostgreSQL 15
+- PostgreSQL 16 (Docker)
 - Flyway
 - Swagger/OpenAPI
 
-## Quick Start
+## Quick Start (Ready-to-use)
 
-### 1) Start PostgreSQL
-
-```bash
-docker compose up -d
-```
-
-Default local DB expected by application config:
-
-- Host: `localhost`
-- Port: `5432`
-- DB: `booking`
-- User: `booking`
-- Password: `booking123`
-
-### 2) Run Application
-
-#### Option A: Dev profile
+### Run everything with Docker Compose
 
 ```bash
-# run with dev profile
-SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
-
-# or run packaged jar (uses application.yml datasource defaults unless env overrides)
-java -jar target/service-booking-platform-0.0.1-SNAPSHOT.jar
+docker compose up --build
 ```
 
-#### Option B: Packaged JAR (default profile)
-
-```bash
-java -jar target/service-booking-platform-0.0.1-SNAPSHOT.jar
-```
-
-> You can override datasource via env vars:
->
-> - `SPRING_DATASOURCE_URL`
-> - `SPRING_DATASOURCE_USERNAME`
-> - `SPRING_DATASOURCE_PASSWORD`
-
-### 3) Verify
+After startup:
 
 | Endpoint | URL |
 |---|---|
 | Health | http://localhost:8080/actuator/health |
 | Swagger UI | http://localhost:8080/swagger-ui/index.html |
 | OpenAPI | http://localhost:8080/v3/api-docs |
+
+The app reads configuration from environment variables by default, with sensible fallbacks in `application.yml`:
+
+- `SERVER_PORT` (default `8080`)
+- `SPRING_DATASOURCE_URL` (default `jdbc:postgresql://localhost:5432/booking`)
+- `SPRING_DATASOURCE_USERNAME` (default `booking`)
+- `SPRING_DATASOURCE_PASSWORD` (default `booking`)
+
+## Run without Docker (optional)
+
+1) Start PostgreSQL locally (or via `docker compose up db -d`).
+
+2) Run application:
+
+```bash
+./mvnw spring-boot:run
+```
+
+or
+
+```bash
+./mvnw -DskipTests clean package
+java -jar target/service-booking-platform-0.0.1-SNAPSHOT.jar
+```
 
 ## Important API Groups
 
@@ -108,25 +100,19 @@ src/main/java/com/relix/servicebooking/
 ├── refund/          # Refund handling
 ├── settlement/      # Settlement + batch processing
 ├── audit/           # Audit logging
-├── common/          # Shared DTO/exception/entity
 └── config/          # Security and app configs
 ```
 
 ## Profiles
 
-| Profile | Database | Seed Data |
-|---|---|---|
-| `dev` | local PostgreSQL (`localhost:5432`) | Yes |
-| `docker` | docker network PostgreSQL (`postgres:5432`) | No |
-| `test` | Testcontainers | No |
+| Profile | Purpose |
+|---|---|
+| `dev` | local development customization |
+| `docker` | docker-specific overrides (optional) |
+| `test` | Testcontainers integration tests |
 
 ## Tests
 
 ```bash
 ./mvnw test
 ```
-
-## Notes for Contributors
-
-- If port `8080` is occupied, run with `--server.port=8081`.
-- For local E2E, use API-only flow (avoid direct DB updates) to validate real business path.

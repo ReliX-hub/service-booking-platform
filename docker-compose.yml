@@ -1,28 +1,29 @@
-version: "3.8"
-
 services:
-  postgres:
-    image: postgres:15-alpine
+  db:
+    image: postgres:16
     container_name: booking-postgres
     environment:
-      POSTGRES_DB: booking
       POSTGRES_USER: booking
-      POSTGRES_PASSWORD: booking123
+      POSTGRES_PASSWORD: booking
+      POSTGRES_DB: booking
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U booking -d booking"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - booking-network
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
-networks:
-  booking-network:
-    driver: bridge
-
-volumes:
-  postgres_data:
+  app:
+    build: .
+    container_name: booking-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/booking
+      SPRING_DATASOURCE_USERNAME: booking
+      SPRING_DATASOURCE_PASSWORD: booking
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
