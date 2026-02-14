@@ -1,45 +1,20 @@
-// src/test/java/com/relix/servicebooking/OrderFlowIntegrationTest.java
-
 package com.relix.servicebooking;
 
 import com.relix.servicebooking.auth.dto.AuthResponse;
 import com.relix.servicebooking.auth.dto.RegisterRequest;
 import com.relix.servicebooking.common.dto.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
-class OrderFlowIntegrationTest {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine")
-            .withDatabaseName("testdb")
-            .withUsername("test")
-            .withPassword("test");
-
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("jwt.secret", () -> "dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBqd3QgdG9rZW4gZ2VuZXJhdGlvbiB0aGF0IGlzIGF0IGxlYXN0IDI1NiBiaXRz");
-    }
+class OrderFlowIntegrationTest extends BaseIntegrationTest {
 
     @LocalServerPort
     private int port;
@@ -85,25 +60,26 @@ class OrderFlowIntegrationTest {
     }
 
     @Test
-    void fullOrderFlow() {
-        // Test authenticated access to orders endpoint
+    @DisplayName("Authenticated customer can list their orders")
+    void authenticatedCustomer_canListOrders() {
         HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders());
 
         ResponseEntity<String> response = restTemplate.exchange(
-                baseUrl + "/api/orders?customerId=1",
+                baseUrl + "/api/orders",
                 HttpMethod.GET,
                 entity,
                 String.class
         );
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody().contains("\"success\":true"));
     }
 
     @Test
+    @DisplayName("Unauthenticated access returns 401")
     void unauthenticatedAccessShouldReturn401() {
-        // Test without token
         ResponseEntity<String> response = restTemplate.getForEntity(
-                baseUrl + "/api/orders?customerId=1",
+                baseUrl + "/api/orders",
                 String.class
         );
 
@@ -111,8 +87,8 @@ class OrderFlowIntegrationTest {
     }
 
     @Test
+    @DisplayName("Public auth endpoints are accessible without token")
     void publicEndpointsShouldBeAccessible() {
-        // Auth endpoints should be public
         RegisterRequest request = RegisterRequest.builder()
                 .name("Public Test")
                 .email("public" + System.currentTimeMillis() + "@example.com")

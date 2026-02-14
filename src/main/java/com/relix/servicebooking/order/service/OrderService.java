@@ -336,6 +336,11 @@ public class OrderService {
             return toResponse(order);
         }
 
+        // Check if the order was paid before cancelling (for auto-refund)
+        boolean wasPaid = paymentRepository.findByOrder_Id(orderId)
+                .map(payment -> payment.getStatus() == Payment.PaymentStatus.SUCCEEDED)
+                .orElse(false);
+
         OrderStateValidator.validateForOperation(order.getStatus(), Order.OrderStatus.CANCELLED, "cancel");
 
         if (order.getTimeSlot() != null) {
@@ -346,6 +351,12 @@ public class OrderService {
         order.setCancelledAt(Instant.now());
         order.setCancellationReason(truncateReason(reason != null ? reason : "Customer cancelled"));
         order = orderRepository.save(order);
+
+        // Trigger auto-refund if the order was paid
+        if (wasPaid) {
+            refundService.createRefund(order, reason != null ? reason : "Customer cancelled");
+            log.info("Refund triggered for cancelled paid order: id={}", orderId);
+        }
 
         auditService.log("ORDER", orderId, "ORDER_CANCELLED",
                 "CUSTOMER", order.getCustomer().getId(),
