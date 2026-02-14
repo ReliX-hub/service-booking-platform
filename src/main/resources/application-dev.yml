@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/booking
     username: booking
-    password: booking123
+    password: booking
     hikari:
       maximum-pool-size: 5
       minimum-idle: 2
