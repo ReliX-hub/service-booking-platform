@@ -20,7 +20,11 @@ docker compose up -d
 ### 2. Run Application
 
 ```bash
+# run with dev profile
 SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
+
+# or run packaged jar (uses application.yml datasource defaults unless env overrides)
+java -jar target/service-booking-platform-0.0.1-SNAPSHOT.jar
 ```
 
 ### 3. Verify

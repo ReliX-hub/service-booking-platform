@@ -2,6 +2,12 @@ spring:
   application:
     name: service-booking-platform
 
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/booking}
+    username: ${SPRING_DATASOURCE_USERNAME:booking}
+    password: ${SPRING_DATASOURCE_PASSWORD:booking123}
+    driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       ddl-auto: validate
