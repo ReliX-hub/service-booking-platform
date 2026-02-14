@@ -8,6 +8,8 @@ import com.relix.servicebooking.auth.entity.RefreshToken;
 import com.relix.servicebooking.auth.repository.RefreshTokenRepository;
 import com.relix.servicebooking.common.exception.BusinessException;
 import com.relix.servicebooking.common.exception.ResourceNotFoundException;
+import com.relix.servicebooking.provider.entity.Provider;
+import com.relix.servicebooking.provider.repository.ProviderRepository;
 import com.relix.servicebooking.user.entity.User;
 import com.relix.servicebooking.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final ProviderRepository providerRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -56,6 +59,11 @@ public class AuthService {
                 .build();
 
         user = userRepository.save(user);
+
+        if (role == User.UserRole.PROVIDER) {
+            createProviderProfileIfMissing(user, request);
+        }
+
         log.info("User registered: id={}, email={}", user.getId(), user.getEmail());
 
         return generateAuthResponse(user);
@@ -109,6 +117,29 @@ public class AuthService {
     public void logout(Long userId) {
         refreshTokenRepository.revokeAllByUserId(userId);
         log.info("User logged out: id={}", userId);
+    }
+
+
+    private void createProviderProfileIfMissing(User user, RegisterRequest request) {
+        if (providerRepository.existsByUser_Id(user.getId())) {
+            return;
+        }
+
+        String businessName = request.getBusinessName();
+        if (businessName == null || businessName.isBlank()) {
+            businessName = user.getName() + "'s Business";
+        }
+
+        Provider provider = Provider.builder()
+                .user(user)
+                .businessName(businessName)
+                .description(request.getProviderDescription())
+                .address(request.getProviderAddress())
+                .verified(false)
+                .build();
+
+        providerRepository.save(provider);
+        log.info("Provider profile created during registration: userId={}, businessName={}", user.getId(), businessName);
     }
 
     private AuthResponse generateAuthResponse(User user) {
