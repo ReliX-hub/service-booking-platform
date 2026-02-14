@@ -56,7 +56,11 @@ Default local DB expected by application config:
 #### Option A: Dev profile
 
 ```bash
+# run with dev profile
 SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
+
+# or run packaged jar (uses application.yml datasource defaults unless env overrides)
+java -jar target/service-booking-platform-0.0.1-SNAPSHOT.jar
 ```
 
 #### Option B: Packaged JAR (default profile)
