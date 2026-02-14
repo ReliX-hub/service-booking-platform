@@ -37,11 +37,41 @@ A Spring Boot backend for service appointment booking, payment, provider workflo
 
 ## Quick Start (Ready-to-use)
 
-### Run everything with Docker Compose
+### Linux / macOS
 
 ```bash
 docker compose up --build
 ```
+
+### Windows (PowerShell)
+
+```powershell
+.\scripts\dev-up.ps1
+```
+
+This script checks whether Docker CLI is available, whether Docker Desktop is running, and whether the `docker compose` plugin is installed before starting containers.
+
+### If `docker` is not found on Windows
+
+1. Install **Docker Desktop** and complete first-time startup.
+2. In Docker Desktop, enable **Use the WSL 2 based engine**.
+3. In Docker Desktop, enable your distro under **Settings → Resources → WSL Integration**.
+4. Open a **new PowerShell** window and run:
+
+```powershell
+docker --version
+docker compose version
+```
+
+If still not found, run Docker CLI directly to verify installation:
+
+```powershell
+& "C:\Program Files\Docker\Docker\resources\bin\docker.exe" --version
+```
+
+If direct path works but `docker` does not, add this directory to your system `PATH` and reopen terminal:
+
+- `C:\Program Files\Docker\Docker\resources\bin`
 
 After startup:
 
