@@ -30,4 +30,10 @@ public class RegisterRequest {
 
     @NotBlank(message = "Role is required")
     private String role;
+
+    private String businessName;
+
+    private String providerDescription;
+
+    private String providerAddress;
 }
