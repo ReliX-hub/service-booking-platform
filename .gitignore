@@ -22,4 +22,4 @@ application-local.yml
 .mvn/wrapper/maven-wrapper.jar
 
 # ===== Testcontainers =====
-testcontainers.properties
+# testcontainers.properties is tracked for cross-platform Docker support
