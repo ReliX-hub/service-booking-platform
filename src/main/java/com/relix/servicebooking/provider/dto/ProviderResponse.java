@@ -15,6 +15,7 @@ import java.time.Instant;
 public class ProviderResponse {
 
     private Long id;
+    private Long userId;
     private String businessName;
     private String description;
     private String address;
