@@ -56,6 +56,15 @@ public class Settlement extends BaseEntity {
     @Column(name = "failure_reason", length = 500)
     private String failureReason;
 
+    @Column(name = "batch_id", length = 50)
+    private String batchId;
+
+    @Column(name = "processed_at")
+    private Instant processedAt;
+
+    @Column(name = "failure_reason", length = 500)
+    private String failureReason;
+
     public enum SettlementStatus {
         PENDING, PROCESSING, COMPLETED, FAILED
     }
