@@ -44,9 +44,17 @@ public class Settlement extends BaseEntity {
     @Builder.Default
     private SettlementStatus status = SettlementStatus.PENDING;
 
-    @Column(name = "settled_at", nullable = false)
-    @Builder.Default
-    private Instant settledAt = Instant.now();
+    @Column(name = "settled_at")
+    private Instant settledAt;
+
+    @Column(name = "batch_id", length = 50)
+    private String batchId;
+
+    @Column(name = "processed_at")
+    private Instant processedAt;
+
+    @Column(name = "failure_reason", length = 500)
+    private String failureReason;
 
     @Column(name = "batch_id", length = 50)
     private String batchId;

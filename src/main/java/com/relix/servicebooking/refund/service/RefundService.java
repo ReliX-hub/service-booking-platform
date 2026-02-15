@@ -50,14 +50,7 @@ public class RefundService {
         log.info("Refund created: id={}, orderId={}, amount={}, reason={}",
                 refund.getId(), order.getId(), payment.getAmount(), reason);
 
-        // Simulate refund processing
-        processRefund(refund, payment);
-
-        return refund;
-    }
-
-    @Transactional
-    public void processRefund(Refund refund, Payment payment) {
+        // Process refund inline to avoid @Transactional self-invocation issue
         try {
             refund.setStatus(Refund.RefundStatus.PROCESSING);
             refundRepository.save(refund);
@@ -78,6 +71,8 @@ public class RefundService {
             log.error("Refund failed: id={}, orderId={}, error={}",
                     refund.getId(), refund.getOrder().getId(), e.getMessage());
         }
+
+        return refund;
     }
 
     public List<RefundResponse> getRefundsByCustomerId(Long customerId) {
@@ -105,7 +100,7 @@ public class RefundService {
         return toResponse(refund);
     }
 
-    private String truncateReason(String reason) {
+    String truncateReason(String reason) {
         if (reason == null) {
             return null;
         }

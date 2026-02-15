@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/booking
     username: booking
-    password: booking123
+    password: booking
     hikari:
       maximum-pool-size: 5
       minimum-idle: 2
@@ -17,3 +17,6 @@ logging:
   level:
     com.relix.servicebooking: DEBUG
     org.hibernate.SQL: DEBUG
+
+jwt:
+  secret: dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBqd3QgdG9rZW4gZ2VuZXJhdGlvbiB0aGF0IGlzIGF0IGxlYXN0IDI1NiBiaXRz

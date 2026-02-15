@@ -144,7 +144,6 @@ public class SettlementService {
                 .platformFee(platformFee)
                 .providerPayout(providerPayout)
                 .status(Settlement.SettlementStatus.PENDING)
-                .settledAt(Instant.now())
                 .build();
 
         settlement = settlementRepository.save(settlement);
