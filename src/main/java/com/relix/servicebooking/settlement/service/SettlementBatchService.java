@@ -76,6 +76,7 @@ public class SettlementBatchService {
                 settlement.setStatus(Settlement.SettlementStatus.COMPLETED);
                 settlement.setBatchId(batchId);
                 settlement.setProcessedAt(Instant.now());
+                settlement.setSettledAt(Instant.now());
                 settlementRepository.save(settlement);
 
                 totalAmount = totalAmount.add(settlement.getProviderPayout());
